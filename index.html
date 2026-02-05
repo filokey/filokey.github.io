@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<link rel="manifest" href="app.webmanifest">
+<h1>Encrypt/Decrypt Files with Passkey</h1>
+Made possible by Filippo's <a href="https://github.com/FiloSottile/typage">Typage</a>. <a
+    href="https://words.filippo.io/passkey-encryption/">Read his blog post here.</a>
+<hr>
+<form method="dialog">
+    <h2>Generate Passkey</h2>
+    <input id="keyname" placeholder="Name your Passkey">
+    <button onclick="onNewkey()">Create a new Passkey</button>
+    <br>
+    <output id="creation"></output>
+</form>
+<hr>
+<form method="dialog">
+    <h2>Encrypt File</h2>
+    <input id="encrypt" type="file">
+    <button onclick="onEncrypt()">Encrypt with existing Passkey</button>
+    <br>
+    <output id="encryption"></output>
+</form>
+<hr>
+<form method="dialog">
+    <h2>Decrypt File</h2>
+    <input id="decrypt" type="file">
+    <button onclick="onDecrypt()">Decrypt with existing Passkey</button>
+    <br>
+    <output id="decryption"></output>
+</form>
+<hr>
+<h3>For long-term use,
+you should re-host this page on a domain you control,
+or from localhost on your computer.</h3> 
+<p>
+    This is because Passkeys are associated to the hostname this page is served from<script>
+    let domain = window.location.hostname;
+    if (domain) {
+        document.currentScript.outerHTML = ' (' + window.location.hostname + ')';
+    }
+</script>, so if this domain later changes or becomes unavailable, the associated Passkeys also becomes inaccessible, and you won't be able to decrypt any files that require those keys.
+</p>
+<script src="age-0.3.0.min.js"></script>
+<script>
+    async function onNewkey() {
+        try {
+            if (!keyname.value) {
+                keyname.value = crypto.randomUUID();
+            }
+
+            const name = keyname.value;
+
+            await age.webauthn.createCredential({ keyName: name });
+
+            keyname.value = '';
+            creation.innerHTML += 'created ' + name + ' for ' + window.location.hostname + '<br>';
+        } catch (error) {
+            creation.innerHTML += error + '<br>';
+        }
+    }
+
+    async function onEncrypt() {
+        try {
+            const e = new age.Encrypter();
+            e.addRecipient(new age.webauthn.WebAuthnRecipient());
+            const data = await e.encrypt(encrypt.files[0].stream());
+
+            const file = await (new Response(data)).blob();
+            const url = URL.createObjectURL(file);
+
+            let filename = encrypt.files[0].name + '.bin';
+
+            encryption.innerHTML += '<a href="' + url + '" download="' + filename + '">' + filename + '</a><br>';
+        } catch (error) {
+            encryption.innerHTML += error + '<br>';
+        }
+    }
+
+    async function onDecrypt() {
+        try {
+            const d = new age.Decrypter();
+            d.addIdentity(new age.webauthn.WebAuthnIdentity());
+            const data = await d.decrypt(decrypt.files[0].stream());
+
+            const file = await (new Response(data)).blob();
+            const url = URL.createObjectURL(file);
+
+            let filename = decrypt.files[0].name;
+            if (filename.endsWith('.bin')) filename = filename.slice(0, -4);
+            decryption.innerHTML += '<a href="' + url + '" download="' + filename + '">' + filename + '</a><br>'
+        } catch (error) {
+            decryption.innerHTML += error + '<br>';
+        }
+    }
+</script>
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            // Register the service worker
+            navigator.serviceWorker.register('sw.js').then(function (registration) {
+                // Registration was successful
+                console.log('ServiceWorker registration successful ', registration);
+            }, function (err) {
+                // registration failed
+                console.log('ServiceWorker registration failed: ', err);
+            });
+        });
+    }
+</script>
