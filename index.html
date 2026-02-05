@@ -40,8 +40,10 @@ This is because Passkeys are associated to the hostname this page is served from
             if (!keyname.value) {
                 keyname.value = crypto.randomUUID();
             }
-            await age.webauthn.createCredential({ keyName: keyname.value });
-            creation.innerHTML += 'created ' + name + ' for ' + window.location.hostname + '<br>';
+            const name = keyname.value;
+            const host = window.location.hostname;
+            await age.webauthn.createCredential({ keyName: name });
+            creation.innerHTML += 'created ' + name + ' for ' + host + '<br>';
             keyname.value = '';
         } catch (error) {
             creation.innerHTML += error + '<br>';
